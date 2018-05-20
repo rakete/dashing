@@ -4,8 +4,8 @@ build:
 	go build -o dashing -ldflags "-X main.version=${VERSION}" dashing.go
 
 install: build
-	install -d ${DESTDIR}/usr/local/bin/
-	install -m 755 ./dashing ${DESTDIR}/usr/local/bin/dashing
+	install -d ${HOME}/go/bin
+	install -m 755 ./dashing ${HOME}/go/bin/dashing
 
 test:
 	go test ./...
