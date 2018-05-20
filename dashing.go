@@ -477,6 +477,17 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 		}
 	}
 
+	moreIgnore := make(map[string]bool)
+	for ignorestring, _ := range ignoreHash {
+		m, err := css.Compile(ignorestring)
+		if err == nil {
+			found := m.MatchAll(top)
+			for _, n := range found {
+				moreIgnore[text(n)] = true
+			}
+		}
+	}
+
 	for pattern, sels := range dashing.selectors {
 		for _, sel := range sels {
 			// Skip this selector if file path doesn't match
@@ -500,7 +511,7 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 				}
 
 				// Skip things explicitly ignored.
-				if ignored(name) {
+				if ignored(name, moreIgnore) {
 					fmt.Printf("Skipping entry for %s (Ignored by dashing JSON)\n", name)
 					continue
 				}
@@ -520,8 +531,11 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 	return refs, writeHTML(path, dest, top)
 }
 
-func ignored(n string) bool {
+func ignored(n string, moreIgnore map[string]bool) bool {
 	_, ok := ignoreHash[n]
+	if !ok {
+		_, ok = moreIgnore[n]
+	}
 	return ok
 }
 
