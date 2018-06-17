@@ -369,7 +369,7 @@ func createDB(name string) (*sql.DB, error) {
 // texasRanger is... wait for it... a WALKER!
 func texasRanger(base string, base_depth int, name string, dashing Dashing, db *sql.DB) error {
 	filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
-		fmt.Printf("Reading %s\n", path)
+		//fmt.Printf("Reading %s\n", path)
 		if strings.HasPrefix(path, name+".docset") {
 			fmt.Printf("Ignoring directory %s\n", path)
 			return filepath.SkipDir
@@ -379,7 +379,7 @@ func texasRanger(base string, base_depth int, name string, dashing Dashing, db *
 		}
 		dest := name + ".docset/Contents/Resources/Documents"
 		if htmlish(path) {
-			fmt.Printf("%s looks like HTML\n", path)
+			//fmt.Printf("%s looks like HTML\n", path)
 			//if err := copyFile(path, name+".docset/Contents/Resources/Documents"); err != nil {
 			//fmt.Printf("Failed to copy file %s: %s\n", path, err)
 			//return err
@@ -526,9 +526,9 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 
 				textString := text(n)
 				if sel.RequireText != nil && !sel.RequireText.MatchString(textString) {
-					fmt.Printf("Skipping entry for '%s' (Text not matching given regexp '%v')\n", textString, sel.RequireText)
 					continue
 				}
+
 				var name string
 				if len(sel.Attribute) != 0 {
 					name = attr(n, sel.Attribute)
@@ -538,7 +538,6 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 
 				// Skip things explicitly ignored.
 				if ignored(name, moreIgnore) {
-					fmt.Printf("Skipping entry for %s (Ignored by dashing JSON)\n", name)
 					continue
 				}
 
