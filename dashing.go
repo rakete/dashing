@@ -59,7 +59,7 @@ type Dashing struct {
 	// Selectors to match.
 	Selectors map[string]interface{} `json:"selectors"`
 	// Final form of the Selectors field.
-	selectors map[string][]*Transform `json:"-"`
+	selectors [][]*Transform
 	// Entries that should be ignored.
 	Ignore []string `json:"ignore"`
 	// A 32x32 pixel PNG image.
@@ -73,6 +73,7 @@ type Dashing struct {
 // When the Selectors map is unmarshaled, the values are turned into
 // Transform structs.
 type Transform struct {
+	Pattern     string
 	Type        string
 	Attribute   string         // Use the value of this attribute as basis
 	Regexp      *regexp.Regexp // Perform a replace operation on the text
@@ -260,33 +261,53 @@ func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
 }
 
 func decodeSelectField(d *Dashing) error {
-	d.selectors = make(map[string][]*Transform, len(d.Selectors))
+	var keys []string
+	values := make(map[string][]*Transform, len(d.Selectors))
+
 	for sel, val := range d.Selectors {
+		fmt.Println(sel, val)
 		var trans *Transform
 		var err error
+
 		rv := reflect.Indirect(reflect.ValueOf(val))
 		if rv.Kind() == reflect.String {
 			trans = &Transform{
-				Type: val.(string),
+				Pattern: sel,
+				Type:    val.(string),
 			}
-			d.selectors[sel] = append(d.selectors[sel], trans)
+			if _, ok := values[sel]; !ok {
+				keys = append(keys, sel)
+			}
+			values[sel] = append(values[sel], trans)
 		} else if rv.Kind() == reflect.Map {
 			val := val.(map[string]interface{})
 			if trans, err = decodeSingleTransform(val); err != nil {
 				return err
 			}
-			d.selectors[sel] = append(d.selectors[sel], trans)
+			trans.Pattern = sel
+			if _, ok := values[sel]; !ok {
+				keys = append(keys, sel)
+			}
+			values[sel] = append(values[sel], trans)
 		} else if rv.Kind() == reflect.Slice {
 			for i := 0; i < rv.Len(); i++ {
 				element := rv.Index(i).Interface().(map[string]interface{})
 				if trans, err = decodeSingleTransform(element); err != nil {
 					return err
 				}
-				d.selectors[sel] = append(d.selectors[sel], trans)
+				trans.Pattern = sel
+				if _, ok := values[sel]; !ok {
+					keys = append(keys, sel)
+				}
+				values[sel] = append(values[sel], trans)
 			}
 		} else {
 			return fmt.Errorf("Expected string or map. Kind is %s.", rv.Kind().String())
 		}
+	}
+
+	for _, k := range keys {
+		d.selectors = append(d.selectors, values[k])
 	}
 	return nil
 }
@@ -488,16 +509,21 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 		}
 	}
 
-	for pattern, sels := range dashing.selectors {
 		for _, sel := range sels {
 			// Skip this selector if file path doesn't match
 			if sel.MatchPath != nil && !sel.MatchPath.MatchString(path) {
 				continue
 			}
+	for _, sels := range dashing.selectors {
 
 			m := css.MustCompile(pattern)
 			found := m.MatchAll(top)
 			for _, n := range found {
+		if len(sels) == 0 {
+			continue
+		}
+
+		m := css.MustCompile(sels[0].Pattern)
 				textString := text(n)
 				if sel.RequireText != nil && !sel.RequireText.MatchString(textString) {
 					fmt.Printf("Skipping entry for '%s' (Text not matching given regexp '%v')\n", textString, sel.RequireText)
