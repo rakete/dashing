@@ -509,21 +509,21 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 		}
 	}
 
-		for _, sel := range sels {
-			// Skip this selector if file path doesn't match
-			if sel.MatchPath != nil && !sel.MatchPath.MatchString(path) {
-				continue
-			}
 	for _, sels := range dashing.selectors {
 
-			m := css.MustCompile(pattern)
-			found := m.MatchAll(top)
-			for _, n := range found {
 		if len(sels) == 0 {
 			continue
 		}
 
 		m := css.MustCompile(sels[0].Pattern)
+		found := m.MatchAll(top)
+		for _, n := range found {
+			for _, sel := range sels {
+				// Skip this selector if file path doesn't match
+				if sel.MatchPath != nil && !sel.MatchPath.MatchString(path) {
+					continue
+				}
+
 				textString := text(n)
 				if sel.RequireText != nil && !sel.RequireText.MatchString(textString) {
 					fmt.Printf("Skipping entry for '%s' (Text not matching given regexp '%v')\n", textString, sel.RequireText)
@@ -551,6 +551,8 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 				refs = append(refs, &reference{name, sel.Type, path + "#" + anchor(n)})
 				// We need to modify the DOM with a special link to support TOC.
 				n.Parent.InsertBefore(newA(name, sel.Type), n)
+
+				break
 			}
 		}
 	}
