@@ -77,7 +77,7 @@ type Transform struct {
 	Type        string
 	Attribute   string         // Use the value of this attribute as basis
 	Regexp      *regexp.Regexp // Perform a replace operation on the text
-	Replacement string
+	Replacement []string
 	RequireText *regexp.Regexp // Require text matches the given regexp
 	MatchPath   *regexp.Regexp // Skip files that don't match this path
 }
@@ -218,7 +218,8 @@ func build(c *cli.Context) {
 }
 
 func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
-	var ttype, trep, attr string
+	var ttype, attr string
+	var trep []string
 	var creg, cmatchpath, requireText *regexp.Regexp
 	var err error
 
@@ -236,7 +237,14 @@ func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
 		}
 	}
 	if r, ok := val["replacement"]; ok {
-		trep = r.(string)
+		rv := reflect.Indirect(reflect.ValueOf(r))
+		if rv.Kind() == reflect.Slice {
+			for _, v := range rv.Interface().([]interface{}) {
+				trep = append(trep, v.(string))
+			}
+		} else {
+			trep = []string{r.(string)}
+		}
 	}
 	if r, ok := val["requiretext"]; ok {
 		requireText, err = regexp.Compile(r.(string))
@@ -542,14 +550,22 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 				}
 
 				// If we have a regexp, run it.
-				if sel.Regexp != nil {
-					name = sel.Regexp.ReplaceAllString(name, sel.Replacement)
-				}
+				if sel.Regexp != nil && len(sel.Replacement) > 0 {
+					for _, replacement := range sel.Replacement {
+						alteredname := sel.Regexp.ReplaceAllString(name, replacement)
+						if len(sel.Replacement) > 0 {
+							fmt.Println(name, replacement, alteredname)
+						}
 
-				// References we want to track.
-				refs = append(refs, &reference{name, sel.Type, path + "#" + anchor(n)})
-				// We need to modify the DOM with a special link to support TOC.
-				n.Parent.InsertBefore(newA(name, sel.Type), n)
+						refs = append(refs, &reference{alteredname, sel.Type, path + "#" + anchor(n)})
+						n.Parent.InsertBefore(newA(alteredname, sel.Type), n)
+					}
+				} else {
+					// References we want to track.
+					refs = append(refs, &reference{name, sel.Type, path + "#" + anchor(n)})
+					// We need to modify the DOM with a special link to support TOC.
+					n.Parent.InsertBefore(newA(name, sel.Type), n)
+				}
 
 				break
 			}
